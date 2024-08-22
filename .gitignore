@@ -19,3 +19,6 @@ data
 
 tmp.py
 debug.py
+
+profile_result/
+profile_result_with_stack/

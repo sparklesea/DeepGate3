@@ -57,9 +57,9 @@ if __name__ == '__main__':
     args = get_parse_args()
     if not os.path.exists(args.data_dir):
         os.makedirs(args.data_dir)
-    
+    print(args.test_npz_path)
     # Stone: Support multiple npz files
-    parser = MultiNpzParser(args.data_dir, args.npz_dir, args.test_npz_path, args, random_shuffle=True)
+    parser = MultiNpzParser(args.data_dir, args.npz_dir, args.test_npz_path, args, random_shuffle=False) # funsun: random_shuffle True for profile
     # parser = LargeNpzParser(args.data_dir, args.npz_dir, args.test_npz_path, args, random_shuffle=False)
     train_dataset, val_dataset = parser.get_dataset()
 

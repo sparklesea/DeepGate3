@@ -9,7 +9,8 @@ from .plain_tf import Plain_Transformer
 from .hop_tf import Hop_Transformer
 from .path_tf import Path_Transformer
 from .baseline_tf import Baseline_Transformer
-from .dg_mamba import DeepGate_mamba
+from .plain_tf_linear import Sparse_Transformer
+# from .dg_mamba import DeepGate_mamba
 from .mlp import MLP
 # from .tf_pool import tf_Pooling
 from dg_datasets.dg3_multi_parser import OrderedData
@@ -18,8 +19,9 @@ _transformer_factory = {
     'baseline': None,
     'plain': Plain_Transformer,
     'hop': Hop_Transformer, 
+    'path': Path_Transformer,
+    'sparse': Sparse_Transformer,
 }
-
 import torch.nn as nn
 import time
 
@@ -229,6 +231,7 @@ class DeepGate3(nn.Module):
                     # glo_hs[batch.nodes] = hs
                     # glo_hf[batch.nodes] = hf
                     hop_node_set = list(set(batch.nodes.cpu().numpy()))
+                    # print(hop_node_set)
                     for emb_idx in hop_node_set:
                         glo_hf[emb_idx] = torch.mean(hf[batch.nodes==emb_idx],dim=0)
                         glo_hs[emb_idx] = torch.mean(hs[batch.nodes==emb_idx],dim=0)

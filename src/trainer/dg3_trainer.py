@@ -21,6 +21,8 @@ from utils.circuit_utils import complete_simulation, random_simulation
 import networkx as nx
 from scipy.optimize import linear_sum_assignment
 
+import torch.profiler as profiler
+
 TT_DIFF_RANGE = [0.2, 0.8]
 
 def sample_structural_sim(subgraph, sample_cnt=100):
@@ -98,6 +100,21 @@ def DeepGate2_Tasks(graph, sample_cnt = 100):
     tt_index = torch.tensor(sample_idx)
     tt_sim = torch.tensor(tt_sim_list)
     return prob, tt_index, tt_sim
+
+prof = profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA],
+            schedule=torch.profiler.schedule(
+                wait=1,
+                warmup=1,
+                active=2,
+                repeat=1),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./profile_result', worker_name='worker0'),
+            record_shapes=True,
+            profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
+            with_stack=True
+        )
 
 class Trainer():
     def __init__(self, 
@@ -451,13 +468,26 @@ class Trainer():
             'on_path_acc': [],
             'on_hop_acc': [],
         }
+        # with torch.profiler.profile(
+        #     activities=[
+        #         torch.profiler.ProfilerActivity.CPU,
+        #         torch.profiler.ProfilerActivity.CUDA],
+        #     schedule=torch.profiler.schedule(
+        #         wait=1,
+        #         warmup=1,
+        #         active=2),
+        #     on_trace_ready=torch.profiler.tensorboard_trace_handler('./profile_result', worker_name='worker0'),
+        #     record_shapes=True,
+        #     profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
+        #     # with_stack=True
+        # ) as prof:
         for iter_id, batch in enumerate(dataset):
             if self.local_rank == 0:
                 time_stamp = time.time()
             #TODO：记得改
             # if torch.max(batch.area_idx)>400:
             #     continue
-
+            prof.start()
             batch = batch.to(self.device)        
             
             loss_dict, metric_dict = self.run_batch(batch,phase=phase)
@@ -474,14 +504,19 @@ class Trainer():
                     overall_dict[metric_key].append(metric_dict[metric_key].detach().cpu())
 
             loss = loss_dict['loss']
-            
-
+        
 
             if phase == 'train':
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
                 # torch.cuda.empty_cache()
+            prof.step()
+            prof.stop()
+
+            print("################iter_id################", iter_id)
+            if iter_id == 3:
+                exit()
             
             if self.local_rank == 0:
                 # Bar.suffix = '[{:}/{:}] |Tot: {total:} |ETA: {eta:} '.format(iter_id, len(dataset), total=bar.elapsed_td, eta=bar.eta_td)
@@ -542,6 +577,8 @@ class Trainer():
                     print(output_log)
                     print('\n')
 
+            
+
         if self.local_rank == 0:
             for k in overall_dict:
                 print('overall {}:{:.4f}'.format(k,torch.mean(torch.tensor(overall_dict[k]))))
@@ -577,7 +614,6 @@ class Trainer():
             # print(output_log)
 
     def train(self, num_epoch, train_datasets, val_dataset):
-
         train_dataset_list = []
         for train_dataset in train_datasets:
             # Distribute Dataset
@@ -595,7 +631,8 @@ class Trainer():
                 train_dataset = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True,
                                         num_workers=self.num_workers, sampler=train_sampler)
             else:
-                train_dataset = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, drop_last=True, num_workers=self.num_workers)
+                train_dataset = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=self.num_workers)
+                # funsun: random_shuffle True for profile
             train_dataset_list.append(train_dataset)
             
         if self.distributed: 

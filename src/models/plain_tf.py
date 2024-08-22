@@ -19,6 +19,7 @@ from bert_model.transformer import TransformerBlock
     
 class Plain_Transformer(nn.Sequential):
     def __init__(self, args, hidden=128, n_layers=12, attn_heads=4, dropout=0.1):
+    # def __init__(self, args, hidden=128, n_layers=1, attn_heads=4, dropout=0.1):
         super().__init__()
         self.args = args
         self.hidden = hidden
